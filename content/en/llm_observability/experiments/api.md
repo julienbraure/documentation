@@ -436,6 +436,7 @@ Create an experiment. If there is an existing experiment with the same name, the
 | `name` (_required_) | string | Unique experiment name. |
 | `description` | string | Experiment description. |
 | `ensure_unique` | bool | If `true`, Datadog generates a new experiment with a unique name in the case of a conflict. Default is `true`. |
+| `run_count` | int | The number of times the experiment will be run over the dataset. |
 | `metadata` | json | Arbitrary key-value metadata associated with the experiment. |
 | `config` | json | Configuration used when creating the experiment. |
 

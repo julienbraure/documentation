@@ -487,12 +487,14 @@ For each dataset record your task processes, emit an OpenTelemetry span with `ge
 | `experiment_id` | Yes | UUID returned from the `POST /api/v2/llm-obs/v1/experiments` call. |
 | `experiment_name` | Yes | Name of the experiment. |
 | `project_name` | Yes | Name of the project. |
-| `run_id` | No | UUID identifying this run. Required alongside `run_iteration` for run-level grouping. |
-| `run_iteration` | No | Integer (starting at 1) identifying which iteration of the run this record belongs to. Required alongside `run_id`. |
+| `run_id` | No | UUID identifying this run. All records processed in the same pass share the same `run_id`. Generate a new UUID per run, not per record. |
+| `run_iteration` | No | Integer (starting at 1) identifying which run number this is. All records in the same pass share the same `run_iteration`. For example, the first pass has `run_iteration=1`, the second has `run_iteration=2`. |
 | `dataset_name` | No | Name of the dataset. |
 | `dataset_id` | No | UUID of the dataset, returned from `POST /api/v2/llm-obs/v1/{project_id}/datasets`. |
 | `dataset_record_id` | No | ID of the specific dataset record being processed. Links the span to a record in the dataset. |
 | `project_id` | No | UUID of the project. |
+
+**Single run**
 
 ```python
 import json
@@ -503,74 +505,115 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 
-# Configure OpenTelemetry to send traces to Datadog LLM Observability
 resource = Resource(attributes={SERVICE_NAME: "my-project"})
 provider = TracerProvider(resource=resource)
 provider.add_span_processor(
     BatchSpanProcessor(
         OTLPSpanExporter(
             endpoint="{{< region-param key="otlp_trace_endpoint" code="true" >}}",
-            headers={
-                "dd-api-key": DD_API_KEY,
-                "dd-otlp-source": "llmobs",
-            },
+            headers={"dd-api-key": DD_API_KEY, "dd-otlp-source": "llmobs"},
         )
     )
 )
 trace.set_tracer_provider(provider)
 tracer = trace.get_tracer(__name__)
 
-# Fetch the dataset records you want to run your task against
 records = [
     {"input": {"question": "What is the capital of Japan?"}, "expected_output": "Tokyo"},
     {"input": {"question": "What is the capital of Brazil?"}, "expected_output": "Brasília"},
 ]
 
-# A single run_id groups all records in this execution together
-run_id = str(uuid.uuid4())
-
 def task(input_data):
-    question = input_data["question"]
     # Your LLM or processing logic here
-    return "Tokyo" if "Japan" in question else "Unknown"
+    return "Tokyo" if "Japan" in input_data["question"] else "Unknown"
 
-for i, record in enumerate(records, start=1):
+for record in records:
     with tracer.start_as_current_span("my_task") as span:
-        # Mark as an experiment span
         span.set_attribute("gen_ai.operation.name", "experiment")
-
-        # Attach experiment context
         span.set_attribute(
             "_dd.ml_obs.experiments",
             json.dumps({
                 "experiment_id": experiment_id,
                 "experiment_name": experiment_name,
                 "project_name": "my-project",
-                "run_id": run_id,
-                "run_iteration": i,
                 "dataset_name": "capitals-dataset",
                 "dataset_id": dataset_id,
                 "dataset_record_id": record.get("record_id", ""),
                 "project_id": project_id,
             }),
         )
-
-        # Set input before running the task — always on the root span,
-        # even if your task creates child spans internally
         span.set_attribute(
             "gen_ai.input.messages",
             json.dumps([{"role": "user", "parts": [{"type": "text", "content": record["input"]["question"]}]}]),
         )
-
         output = task(record["input"])
-
-        # Set output on the root span after the task completes
         span.set_attribute(
             "gen_ai.output.messages",
             json.dumps([{"role": "assistant", "parts": [{"type": "text", "content": output}]}]),
         )
 
-# Flush all spans before the process exits
+provider.force_flush()
+```
+
+### Running multiple times
+
+Each complete pass through the dataset is one **run**. Runs let you compare results across multiple executions of the same experiment — for example, to test different prompts or configurations side by side.
+
+All records in a run share the same `run_id` (a UUID you generate) and `run_iteration` (an incrementing integer starting at 1). The backend uses `dataset_record_id` to match each span to its record within a run.
+
+Set `run_count` on the experiment to the number of runs you intend to execute:
+
+```python
+# Create an experiment with run_count set to the number of runs
+num_runs = 3
+experiment_resp = requests.post(
+    f"{BASE_URL}/api/v2/llm-obs/v1/experiments",
+    headers=HEADERS,
+    json={
+        "data": {
+            "type": "experiments",
+            "attributes": {
+                "name": "capital-cities-otel-test",
+                "project_id": project_id,
+                "dataset_id": dataset_id,
+                "run_count": num_runs,
+            },
+        }
+    },
+)
+experiment_id = experiment_resp.json()["data"]["id"]
+experiment_name = experiment_resp.json()["data"]["attributes"]["name"]
+
+for run_iteration in range(1, num_runs + 1):
+    run_id = str(uuid.uuid4())  # shared across all records in this pass
+
+    for record in records:
+        with tracer.start_as_current_span("my_task") as span:
+            span.set_attribute("gen_ai.operation.name", "experiment")
+            span.set_attribute(
+                "_dd.ml_obs.experiments",
+                json.dumps({
+                    "experiment_id": experiment_id,
+                    "experiment_name": experiment_name,
+                    "project_name": "my-project",
+                    "run_id": run_id,
+                    "run_iteration": run_iteration,
+                    "dataset_name": "capitals-dataset",
+                    "dataset_id": dataset_id,
+                    "dataset_record_id": record.get("record_id", ""),
+                    "project_id": project_id,
+                }),
+            )
+            span.set_attribute(
+                "gen_ai.input.messages",
+                json.dumps([{"role": "user", "parts": [{"type": "text", "content": record["input"]["question"]}]}]),
+            )
+            output = task(record["input"])
+            span.set_attribute(
+                "gen_ai.output.messages",
+                json.dumps([{"role": "assistant", "parts": [{"type": "text", "content": output}]}]),
+            )
+
 provider.force_flush()
 ```
 
