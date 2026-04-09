@@ -1136,6 +1136,41 @@
       "group": "metrics",
       "suffix": "_3112571352",
       "description": "Scalar cross product query returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_2533499017",
+      "description": "Scalar cross product query with apm_dependency_stats data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_779493885",
+      "description": "Scalar cross product query with apm_metrics data source and span_kind returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_1904811219",
+      "description": "Scalar cross product query with apm_metrics data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_1479548882",
+      "description": "Scalar cross product query with apm_resource_stats data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_891952130",
+      "description": "Scalar cross product query with container data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_4230617918",
+      "description": "Scalar cross product query with process data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_2298288525",
+      "description": "Scalar cross product query with slo data source returns \"OK\" response"
     }
   ],
   "SubmitMetrics": [
@@ -1155,6 +1190,41 @@
       "group": "metrics",
       "suffix": "_301142940",
       "description": "Timeseries cross product query returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_847716941",
+      "description": "Timeseries cross product query with apm_dependency_stats data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_3535807425",
+      "description": "Timeseries cross product query with apm_metrics data source and span_kind returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_4246412951",
+      "description": "Timeseries cross product query with apm_metrics data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_4028506518",
+      "description": "Timeseries cross product query with apm_resource_stats data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_3174309318",
+      "description": "Timeseries cross product query with container data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_2159746306",
+      "description": "Timeseries cross product query with process data source returns \"OK\" response"
+    },
+    {
+      "group": "metrics",
+      "suffix": "_108927825",
+      "description": "Timeseries cross product query with slo data source returns \"OK\" response"
     }
   ],
   "UpdateTagConfiguration": [
